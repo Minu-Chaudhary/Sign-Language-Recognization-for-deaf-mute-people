@@ -2,6 +2,7 @@
 import cv2 
 import numpy as np
 import math
+import xlsxwriter
 
 ################################# defining func ######################################
 def frame_read():
@@ -65,60 +66,69 @@ def analysis(defects, contour, crop_image, frame, areacnt, arearatio):
             cv2.circle(crop_image, far, 3, [0,0,255], -1) # -1 so that boundary will be inside 
 
             cv2.line(crop_image, start, end, [0,255,0], 2)
+      
+    return frame,count_defects,arearatio
 
-    if count_defects == 0:
-        if areacnt<2000:
-                cv2.putText(frame, "NOTHING ;)", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 2,(0,0,255),2)
-        else:
-            if arearatio<12:
-                        cv2.putText(frame, "ZERO", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 2,(0,0,255),2)
-            elif arearatio<17.5:
-                        cv2.putText(frame, "OK", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 2,(0,0,255),2)
-
-            else:
-                    cv2.putText(frame, "ONE", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 2,(0,0,255),2)
-                    
-    elif count_defects == 1:
-            cv2.putText(frame, "TWO", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 2,(0,0,255), 2)
-    elif count_defects == 2:
-
-        if arearatio<27:
-                cv2.putText(frame, "wowww!!", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 2,(0,0,255), 2)
-        else:
-                cv2.putText(frame, "THREE", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 2,(0,0,255),2)
-    elif count_defects == 3:
-            cv2.putText(frame, "FOUR", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 2,(0,0,255), 2)
-    elif count_defects == 4:
-            cv2.putText(frame, "FIVE", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 2,(0,0,255), 2)
-    else:
-        pass
-    return frame
-
+def include_new_sign(count_defects,arearatio,sr_no):
+     print("2")
+     gesture_name = input("write gesture name:")
+     outSheet.write(sr_no+1,0,sr_no)
+     outSheet.write(sr_no+1,1,gesture_name)
+     outSheet.write(sr_no+1,2,count_defects)
+     outSheet.write(sr_no+1,3,arearatio)
+     print(type(gesture_name))
+       
+           
 def  display_out(frame, drawing, crop_image):
     cv2.imshow("gesture", frame)
     all_image = np.hstack((drawing, crop_image))  
     cv2.imshow('contours', all_image) 
-
   
 ################################# main func ######################################
 if __name__ == "__main__":
 
     cap = cv2.VideoCapture(0)
-    while cap.isOpened():
-        frame=frame_read()
-        crop_image=crop_frame(frame)
-        thresh=frame_pre_process(crop_image)
-        try:
-            defects,contour,areacnt,arearatio,drawing=data_abstract(thresh, crop_image)
-            frame=analysis(defects, contour, crop_image, frame, areacnt, arearatio)
-        except:
-            pass
-        display_out(frame, drawing, crop_image)
+    outWorkbook = xlsxwriter.Workbook("gesture2.xlsx")
+    outSheet = outWorkbook.add_worksheet()
+    outSheet.write("A1","Sr_No.")
+    outSheet.write("B1","Gesture_name")
+    outSheet.write("C1","Count_defect")
+    outSheet.write("D1","Area_ratio")
+    sr_no=0    
+    while(1):
+        ip=input("Enter your choice: For Detection, enter D; For Addition, enter A:")
+        if(ip == "A"):
+             for i in range(5):
+                  print("press a key 'n' after showing ur gesture")
+                  while cap.isOpened():
+                       try:
+                            frame=frame_read()
+                            crop_image=crop_frame(frame)
+                            thresh=frame_pre_process(crop_image)
+                            defects,contour,areacnt,arearatio,drawing = data_abstract(thresh, crop_image)
+                            frame,count_defects,arearatio = analysis(defects, contour, crop_image, frame, areacnt, arearatio)
+                            display_out(frame, drawing, crop_image)  
+                       except:
+                            pass
+                              
+                       if cv2.waitKey(1) == ord("n"): 
+                            break
+                  count_defects_t=0.0
+                  arearatio_t=0.0
+                  try:
+                      defects,contour,areacnt,arearatio,drawing = data_abstract(thresh, crop_image)
+                      frame,count_defects,arearatio = analysis(defects, contour, crop_image, frame, areacnt, arearatio)
+                      count_defects_t = count_defects_t + count_defects
+                      arearatio_t = arearatio_t + arearatio                     
+                  except:
+                      pass
+             include_new_sign(count_defects,arearatio,sr_no)
+             sr_no=sr_no+1
 
-        if cv2.waitKey(1) == ord('q'):
-            break
-
+        else:
+             break
+        
+    outWorkbook.close()
+    print("q")
     cap.release()
     cv2.destroyAllWindows()
-                
-        
