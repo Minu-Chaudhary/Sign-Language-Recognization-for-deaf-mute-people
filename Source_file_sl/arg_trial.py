@@ -124,7 +124,7 @@ if __name__ == "__main__":
                       pass
              include_new_sign(count_defects,arearatio,sr_no)
              sr_no=sr_no+1
-
+             
         else:
              break
         
