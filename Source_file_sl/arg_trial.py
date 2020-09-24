@@ -56,27 +56,22 @@ def analysis(defects, contour, crop_image, areacnt, arearatio):
         c = math.sqrt((end[0] - far[0]) ** 2 + (end[1] - far[1]) ** 2)
         s = (a+b+c)/2
         ar = math.sqrt(s*(s-a)*(s-b)*(s-c))
-
         d = (2*ar)/a
-            
         angle = (math.acos((b ** 2 + c ** 2 - a ** 2) / (2 * b * c)) * 180) / 3.14
 
         if angle <=90  and d >30 :
             count_defects +=1
             cv2.circle(crop_image, far, 3, [0,0,255], -1) # -1 so that boundary will be inside 
-
             cv2.line(crop_image, start, end, [0,255,0], 2)
-      
+            
     return count_defects,arearatio
 
 def include_new_sign(count_defects,arearatio,sr_no):
-     print("2")
      gesture_name = input("write gesture name:")
      sheet_obj.append([sr_no+1,gesture_name,count_defects,arearatio])
-     print(type(gesture_name))
                 
 def  display_out(frame, drawing, crop_image, sign_name = "addition mode"):
-    cv2.putText(frame, sign_name, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 2,(0,0,255),2)
+    cv2.putText(frame, sign_name, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1,(0,0,255),2)
     cv2.imshow("gesture", frame)
     all_image = np.hstack((drawing, crop_image))  
     cv2.imshow('contours', all_image)
@@ -87,8 +82,7 @@ if __name__ == "__main__":
     cap = cv2.VideoCapture(0)
     wb_obj = openpyxl.load_workbook("gesture2.xlsx")
     sheet_obj = wb_obj.active
-    sr_no_max = sheet_obj.max_row
-    print(sr_no_max)        
+    sr_no_max = sheet_obj.max_row     
     
     while(1):
         ip=input("Enter your choice: For Detection, enter D; For Addition, enter A:")
@@ -102,7 +96,7 @@ if __name__ == "__main__":
                             crop_image=crop_frame(frame)
                             thresh=frame_pre_process(crop_image)
                             defects,contour,areacnt,arearatio,drawing = data_abstract(thresh, crop_image)
-                            frame,count_defects,arearatio = analysis(defects, contour, crop_image, frame, areacnt, arearatio)
+                            count_defects,arearatio = analysis(defects, contour, crop_image, areacnt, arearatio)
                             display_out(frame, drawing, crop_image)  
                        except:
                             pass
@@ -133,47 +127,32 @@ if __name__ == "__main__":
                        
                   except:
                        pass
-
-                                      
+         
                     ################################################# comparing & detecting #######################################################
                   temp=1
                   temp_diff = 9999
                   for i in range(2,sr_no_max+1):
                       cell_obj = sheet_obj.cell(row =i,column =3)
-
                       cell_obj_ar = sheet_obj.cell(row =i,column =4)
-
                       a = cell_obj.value
                       b = cell_obj_ar.value
-                      print(count_defects)
-                      print(arearatio)
-                    
+
                       if((a == count_defects) and  (arearatio >= (b - b*0.2)) and  (arearatio <= (b + b*0.2))):
-                          print("a")
-                          cell = b
-                          if(abs(cell - arearatio) <= temp_diff ):
-                              print("b")
+                          if(abs(b - arearatio) <= temp_diff ):
                               temp = i
-                              temp_diff = abs(cell - arearatio)
+                              temp_diff = abs(b - arearatio)
                               
-                  print(temp)
-                  #print(cell_obj.value)
-                  #print(cell_obj_ar.value)
-                  
                   if(temp == 1):
-                       sign_name = "not found"
+                       sign_name = "unknown sign"
                   else:
                        
                        cell_obj_n = sheet_obj.cell(row=temp,column = 2)
                        sign_name = cell_obj_n.value
-                       print(sign_name)
                   display_out(frame, drawing, crop_image,sign_name)                
                   if cv2.waitKey(1) == ord("n"): 
                        break
 
         else:
              break
-        
-    print("q")
     cap.release()
     cv2.destroyAllWindows()
