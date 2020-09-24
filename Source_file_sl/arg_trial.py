@@ -2,7 +2,7 @@
 import cv2 
 import numpy as np
 import math
-import xlsxwriter
+import openpyxl
 
 ################################# defining func ######################################
 def frame_read():
@@ -43,7 +43,7 @@ def data_abstract(thresh, crop_image):
     defects = cv2.convexityDefects(contour,hull)
     return defects,contour,areacnt, arearatio, drawing
 
-def analysis(defects, contour, crop_image, frame, areacnt, arearatio):
+def analysis(defects, contour, crop_image, areacnt, arearatio):
     count_defects = 0
     for i in range(defects.shape[0]):
         s,e,f,d = defects[i,0]          #s:start, e:end, f:far, d:distant
@@ -67,37 +67,33 @@ def analysis(defects, contour, crop_image, frame, areacnt, arearatio):
 
             cv2.line(crop_image, start, end, [0,255,0], 2)
       
-    return frame,count_defects,arearatio
+    return count_defects,arearatio
 
 def include_new_sign(count_defects,arearatio,sr_no):
      print("2")
      gesture_name = input("write gesture name:")
-     outSheet.write(sr_no+1,0,sr_no)
-     outSheet.write(sr_no+1,1,gesture_name)
-     outSheet.write(sr_no+1,2,count_defects)
-     outSheet.write(sr_no+1,3,arearatio)
+     sheet_obj.append([sr_no+1,gesture_name,count_defects,arearatio])
      print(type(gesture_name))
-       
-           
-def  display_out(frame, drawing, crop_image):
+                
+def  display_out(frame, drawing, crop_image, sign_name = "addition mode"):
+    cv2.putText(frame, sign_name, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 2,(0,0,255),2)
     cv2.imshow("gesture", frame)
     all_image = np.hstack((drawing, crop_image))  
-    cv2.imshow('contours', all_image) 
-  
+    cv2.imshow('contours', all_image)
+ 
 ################################# main func ######################################
 if __name__ == "__main__":
 
     cap = cv2.VideoCapture(0)
-    outWorkbook = xlsxwriter.Workbook("gesture2.xlsx")
-    outSheet = outWorkbook.add_worksheet()
-    outSheet.write("A1","Sr_No.")
-    outSheet.write("B1","Gesture_name")
-    outSheet.write("C1","Count_defect")
-    outSheet.write("D1","Area_ratio")
-    sr_no=0    
+    wb_obj = openpyxl.load_workbook("gesture2.xlsx")
+    sheet_obj = wb_obj.active
+    sr_no_max = sheet_obj.max_row
+    print(sr_no_max)        
+    
     while(1):
         ip=input("Enter your choice: For Detection, enter D; For Addition, enter A:")
         if(ip == "A"):
+             
              for i in range(5):
                   print("press a key 'n' after showing ur gesture")
                   while cap.isOpened():
@@ -117,18 +113,67 @@ if __name__ == "__main__":
                   arearatio_t=0.0
                   try:
                       defects,contour,areacnt,arearatio,drawing = data_abstract(thresh, crop_image)
-                      frame,count_defects,arearatio = analysis(defects, contour, crop_image, frame, areacnt, arearatio)
+                      count_defects,arearatio = analysis(defects, contour, crop_image, areacnt, arearatio)
                       count_defects_t = count_defects_t + count_defects
                       arearatio_t = arearatio_t + arearatio                     
                   except:
                       pass
-             include_new_sign(count_defects,arearatio,sr_no)
-             sr_no=sr_no+1
-             
+             include_new_sign(count_defects,arearatio,sr_no_max)
+             sr_no_max = sr_no_max+1
+             wb_obj.save("gesture2.xlsx") 
+
+        elif(ip == "D"):
+             while cap.isOpened():
+                  try:
+                       frame=frame_read()
+                       crop_image=crop_frame(frame)
+                       thresh=frame_pre_process(crop_image)
+                       defects,contour,areacnt,arearatio,drawing = data_abstract(thresh, crop_image)
+                       count_defects,arearatio = analysis(defects, contour, crop_image, areacnt, arearatio)
+                       
+                  except:
+                       pass
+
+                                      
+                    ################################################# comparing & detecting #######################################################
+                  temp=1
+                  temp_diff = 9999
+                  for i in range(2,sr_no_max+1):
+                      cell_obj = sheet_obj.cell(row =i,column =3)
+
+                      cell_obj_ar = sheet_obj.cell(row =i,column =4)
+
+                      a = cell_obj.value
+                      b = cell_obj_ar.value
+                      print(count_defects)
+                      print(arearatio)
+                    
+                      if((a == count_defects) and  (arearatio >= (b - b*0.2)) and  (arearatio <= (b + b*0.2))):
+                          print("a")
+                          cell = b
+                          if(abs(cell - arearatio) <= temp_diff ):
+                              print("b")
+                              temp = i
+                              temp_diff = abs(cell - arearatio)
+                              
+                  print(temp)
+                  #print(cell_obj.value)
+                  #print(cell_obj_ar.value)
+                  
+                  if(temp == 1):
+                       sign_name = "not found"
+                  else:
+                       
+                       cell_obj_n = sheet_obj.cell(row=temp,column = 2)
+                       sign_name = cell_obj_n.value
+                       print(sign_name)
+                  display_out(frame, drawing, crop_image,sign_name)                
+                  if cv2.waitKey(1) == ord("n"): 
+                       break
+
         else:
              break
         
-    outWorkbook.close()
     print("q")
     cap.release()
     cv2.destroyAllWindows()
